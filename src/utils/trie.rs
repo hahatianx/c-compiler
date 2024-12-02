@@ -1,9 +1,10 @@
 use std::collections::HashMap;
 use crate::scanner::tokens::TokenType;
+use crate::common::Result;
 
 pub trait Trie {
     fn insert(&mut self, key: &str, value: TokenType);
-    fn query(&self, word: &str) -> TokenType;
+    fn query(&self, word: &str) -> Option<TokenType>;
 }
 
 pub struct TrieNode {
@@ -41,7 +42,7 @@ pub struct KeywordTrie {
 pub struct KeywordTrieChecker<'a> {
     trie: &'a KeywordTrie,
     curr: Option<&'a TrieNode>,
-    check: bool,
+    cache: String,
 }
 
 impl Trie for KeywordTrie {
@@ -57,18 +58,18 @@ impl Trie for KeywordTrie {
         cur.set_token_type(value);
     }
 
-    fn query(&self, word: &str) -> TokenType {
+    fn query(&self, word: &str) -> Option<TokenType> {
         let mut cur = &self.root;
         for c in word.chars() {
             match cur.ch.get(&c) {
                 Some(node) => cur = node,
-                None => return TokenType::None,
+                None => return None,
             }
         }
         if cur.leaf {
-            cur.token_type
+            Some(cur.token_type)
         } else {
-            TokenType::None
+            None
         }
     }
 }
@@ -87,6 +88,12 @@ impl KeywordTrie {
         keyword_trie.insert("while", TokenType::While);
         keyword_trie.insert("return", TokenType::Return);
 
+        keyword_trie.insert("int", TokenType::KeyInt);
+        keyword_trie.insert("long", TokenType::KeyLong);
+        keyword_trie.insert("float", TokenType::KeyFloat);
+        keyword_trie.insert("double", TokenType::KeyDouble);
+        keyword_trie.insert("string", TokenType::KeyString);
+
         keyword_trie
     }
 
@@ -94,40 +101,45 @@ impl KeywordTrie {
         KeywordTrieChecker {
             trie: self,
             curr: Some(&self.root),
-            check: false,
+            cache: String::new(),
         }
     }
 }
 
 impl<'a> KeywordTrieChecker<'a> {
 
-    pub fn query(&self, word: &str) -> TokenType {
+    pub fn query(&self, word: &str) -> Option<TokenType> {
         self.trie.query(word)
     }
 
     pub fn update(&mut self, c: char) {
-        self.check = true;
         if let Some(cur) = self.curr {
             self.curr = cur.ch.get(&c);
         }
+        self.cache.push(c);
     }
 
-    pub fn check(&mut self) -> TokenType {
-        let mut return_value = TokenType::None;
+    pub fn check(&mut self) -> Option<TokenType> {
+        let mut return_value = None;
         if let Some(cur) = self.curr {
             if cur.leaf {
-                return_value = cur.token_type;
+                return_value = Some(cur.token_type);
             }
         }
         self.curr = Some(&self.trie.root);
-        self.check = false;
         return_value
     }
 
-    pub fn checkable(&self) -> bool {
-        self.check
+    pub fn get_str(&mut self) -> Result<String> {
+        // validate
+        let return_value = Ok(self.cache.clone());
+        self.cache.clear();
+        return_value
     }
 
+    pub fn can_consume(&self, c: &char) -> bool {
+        c.is_ascii_alphanumeric() || *c == '_'
+    }
 }
 
 #[cfg(test)]
@@ -146,19 +158,19 @@ mod tests {
         trie.insert("while", TokenType::While);
         trie.insert("return", TokenType::Return);
 
-        assert_eq!(trie.query("break"), TokenType::Break);
-        assert_eq!(trie.query("continue"), TokenType::Continue);
-        assert_eq!(trie.query("if"), TokenType::If);
-        assert_eq!(trie.query("else"), TokenType::Else);
-        assert_eq!(trie.query("for"), TokenType::For);
-        assert_eq!(trie.query("while"), TokenType::While);
-        assert_eq!(trie.query("return"), TokenType::Return);
+        assert_eq!(trie.query("break"), Some(TokenType::Break));
+        assert_eq!(trie.query("continue"), Some(TokenType::Continue));
+        assert_eq!(trie.query("if"), Some(TokenType::If));
+        assert_eq!(trie.query("else"), Some(TokenType::Else));
+        assert_eq!(trie.query("for"), Some(TokenType::For));
+        assert_eq!(trie.query("while"), Some(TokenType::While));
+        assert_eq!(trie.query("return"), Some(TokenType::Return));
 
-        assert_eq!(trie.query("i"), TokenType::None);
-        assert_eq!(trie.query("whilea"), TokenType::None);
-        assert_eq!(trie.query("esle"), TokenType::None);
-        assert_eq!(trie.query("retun"), TokenType::None);
-        assert_eq!(trie.query("contin"), TokenType::None);
+        assert_eq!(trie.query("i"), None);
+        assert_eq!(trie.query("whilea"), None);
+        assert_eq!(trie.query("esle"), None);
+        assert_eq!(trie.query("retun"), None);
+        assert_eq!(trie.query("contin"), None);
     }
 
     #[test]
@@ -175,19 +187,19 @@ mod tests {
 
         let checker = trie.into_checker();
 
-        assert_eq!(checker.query("break"), TokenType::Break);
-        assert_eq!(checker.query("continue"), TokenType::Continue);
-        assert_eq!(checker.query("if"), TokenType::If);
-        assert_eq!(checker.query("else"), TokenType::Else);
-        assert_eq!(checker.query("for"), TokenType::For);
-        assert_eq!(checker.query("while"), TokenType::While);
-        assert_eq!(checker.query("return"), TokenType::Return);
+        assert_eq!(checker.query("break"), Some(TokenType::Break));
+        assert_eq!(checker.query("continue"), Some(TokenType::Continue));
+        assert_eq!(checker.query("if"), Some(TokenType::If));
+        assert_eq!(checker.query("else"), Some(TokenType::Else));
+        assert_eq!(checker.query("for"), Some(TokenType::For));
+        assert_eq!(checker.query("while"), Some(TokenType::While));
+        assert_eq!(checker.query("return"), Some(TokenType::Return));
 
-        assert_eq!(checker.query("i"), TokenType::None);
-        assert_eq!(checker.query("whilea"), TokenType::None);
-        assert_eq!(checker.query("esle"), TokenType::None);
-        assert_eq!(checker.query("retun"), TokenType::None);
-        assert_eq!(checker.query("contin"), TokenType::None);
+        assert_eq!(checker.query("i"), None);
+        assert_eq!(checker.query("whilea"), None);
+        assert_eq!(checker.query("esle"), None);
+        assert_eq!(checker.query("retun"), None);
+        assert_eq!(checker.query("contin"), None);
     }
 
     #[test]
@@ -205,21 +217,21 @@ mod tests {
         let mut checker = trie.into_checker();
 
         checker.update('b');
-        assert_eq!(checker.check(), TokenType::None);
+        assert_eq!(checker.check(), None);
 
         checker.update('b');
         checker.update('r');
         checker.update('e');
         checker.update('a');
         checker.update('k');
-        assert_eq!(checker.check(), TokenType::Break);
-        assert_eq!(checker.check(), TokenType::None);
+        assert_eq!(checker.check(), Some(TokenType::Break));
+        assert_eq!(checker.check(), None);
 
         checker.update('c');
         checker.update('o');
         checker.update('n');
         checker.update('t');
         checker.update('t');
-        assert_eq!(checker.check(), TokenType::None);
+        assert_eq!(checker.check(), None);
     }
 }

@@ -1,4 +1,4 @@
-
+use std::fmt::{Debug, Formatter};
 
 #[derive(Clone, Debug, PartialEq, Copy)]
 pub enum TokenType {
@@ -7,7 +7,11 @@ pub enum TokenType {
     LeftBrace,
     RightBrace,
     Comma,
+    Semicolon,
 
+    Identifier,
+    Char,
+    String,
     Integer,
     Double,
 
@@ -16,15 +20,38 @@ pub enum TokenType {
 
     // Operators
     Plus,
+    PlusEqual,
     Minus,
+    MinusEqual,
     Star,
+    StarEqual,
     Slash,
+    SlashEqual,
+    And,
+    AndEqual,
+    Or,
+    OrEqual,
+    Cap,
+    CapEqual,
+    Wave,
+    WaveEqual,
+    Not,
+
+    Greater,
+    GreaterEqual,
+    Less,
+    LessEqual,
+
+    Equal,
+    EqualEqual,
+    NotEqual,
 
     // type keywords,
-    T_Int,
-    T_Double,
-    T_Float,
-    T_String,
+    KeyInt,
+    KeyLong,
+    KeyDouble,
+    KeyFloat,
+    KeyString,
 
     // Keywords
     Break,
@@ -34,55 +61,69 @@ pub enum TokenType {
     Else,
     For,
     While,
-
-
 }
 
 
-#[derive(Clone, Debug, PartialEq, Copy)]
+#[derive(Clone, Copy)]
+#[repr(C)]
 union TokenValue {
     float_value: f64,
     int_value: i64,
 }
 
-#[derive(Clone, Debug, PartialEq, Copy)]
-pub struct Token<'a> {
-    pub token_type: TokenType,
-
-    text: Option<&'a str>,
-
-    value: Option<TokenValue>,
-
+impl Debug for TokenValue {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        write!(f, "{}", unsafe { self.int_value })
+    }
 }
 
-impl<'a> Token<'a> {
+#[derive(Clone)]
+pub enum Token {
+    Single(TokenType),
+    Identifier(String),
+    Number(TokenType, TokenValue),
+    Text(TokenType, String),
+}
 
-    pub fn EOF() -> Self {
-        Self {
-            token_type: TokenType::Eof,
-            text: None,
-            value: None,
+impl Debug for Token {
+    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
+        match self {
+            Token::Single(tt) => write!(f, "[{:?}]", tt),
+            Token::Identifier(ident) => write!(f, "[Identifier: {}]", ident),
+            Token::Number(tt, value) => {
+                match tt {
+                    TokenType::Integer => write!(f, "[Int: {:?}]", value),
+                    TokenType::Double => write!(f, "[Double: {:?}]", value),
+                    _ => panic!("Should not happen"),
+                }
+            },
+            Token::Text(tt, value) => {
+                match tt {
+                    TokenType::String => write!(f, "[Str: {:?}]", value),
+                    TokenType::Char => write!(f, "[Char: {:?}]", value),
+                    _ => panic!("Should not happen!"),
+                }
+            },
         }
     }
+}
 
-    pub fn new(token_type: TokenType, text: &'a str, value: TokenValue) -> Self {
-        Self {
-            token_type,
-            text: Some(text),
-            value: Some(value),
-        }
+impl<'a> Token {
+    pub fn single_token(token_type: TokenType) -> Self {
+        Self::Single(token_type)
     }
 
-    pub fn get_value<T>(&self) -> Option<T>
-    where T: Copy
-    {
-        unsafe {
-            match self.token_type {
-                TokenType::Integer => Some(self.value.unwrap().int_value),
-                TokenType::Double => Some(self.value.unwrap().float_value),
-                _ => None
-            }
-        }
+    pub fn number_token(value: i64) -> Self {
+        Self::Number(TokenType::Integer, TokenValue { int_value: value })
     }
 
+    pub fn text_token(token_type: TokenType, value: &'a str) -> Self {
+        // token_type must be either String or Char
+        Self::Text(token_type, value.to_string())
+    }
+
+    pub fn identifier(text: &'a str) -> Self {
+        // identifiers
+        Self::Identifier(text.to_string())
+    }
 }
