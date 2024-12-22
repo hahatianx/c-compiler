@@ -8,6 +8,8 @@ pub enum TokenType {
     RightBrace,
     Comma,
     Semicolon,
+    LeftArrow,
+    RightArrow,
 
     Identifier,
     Char,
@@ -36,6 +38,7 @@ pub enum TokenType {
     Wave,
     WaveEqual,
     Not,
+    Hash,
 
     Greater,
     GreaterEqual,
@@ -67,8 +70,8 @@ pub enum TokenType {
 #[derive(Clone, Copy)]
 #[repr(C)]
 union TokenValue {
-    float_value: f64,
-    int_value: i64,
+    pub float_value: f64,
+    pub int_value: i64,
 }
 
 impl Debug for TokenValue {
@@ -79,6 +82,7 @@ impl Debug for TokenValue {
 
 #[derive(Clone)]
 pub enum Token {
+    None,
     Single(TokenType),
     Identifier(String),
     Number(TokenType, TokenValue),
@@ -104,6 +108,7 @@ impl Debug for Token {
                     _ => panic!("Should not happen!"),
                 }
             },
+            _ => {write!(f, "")},
         }
     }
 }
@@ -125,5 +130,15 @@ impl<'a> Token {
     pub fn identifier(text: &'a str) -> Self {
         // identifiers
         Self::Identifier(text.to_string())
+    }
+
+    pub fn get_token_type(&self) -> TokenType {
+        match self {
+            Token::Single(t) => *t,
+            Token::Identifier(_) => TokenType::Identifier,
+            Token::Number(t, _) => *t,
+            Token::Text(t, _) => *t,
+            Token::None => TokenType::None,
+        }
     }
 }

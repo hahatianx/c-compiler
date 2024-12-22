@@ -5,11 +5,12 @@ use crate::scanner::tokens::{Token, TokenType};
 use crate::utils::trie::KeywordTrie;
 use std::iter::Peekable;
 use std::str::Chars;
+use crate::source_code::SourceCode;
 
-pub struct Scanner {
-    source_code: String,
+pub struct Scanner<'a> {
     keyword_trie: KeywordTrie,
     number_parser: NumberParser,
+    chars: ScannerPeekable<'a>,
 }
 
 struct ScannerPeekable<'a> {
@@ -89,30 +90,28 @@ fn parse_constant_chars(
     Ok(result)
 }
 
-impl Scanner {
-    pub fn new(code: String) -> Self {
+impl<'a> Scanner<'a> {
+    pub fn new(source_code: &'a SourceCode) -> Self {
         Self {
             keyword_trie: KeywordTrie::new(),
             number_parser: NumberParser::new(),
-            source_code: code,
+            chars: ScannerPeekable::new(source_code.get_source_code().chars().peekable()),
         }
     }
 
+    pub fn get_position(&self) -> (usize, usize) {
+        (self.chars.line_number, self.chars.col_number)
+    }
 
-
-    pub fn scan(&mut self) -> Result<Vec<Token>> {
-
-        let mut tokens: Vec<Token> = Vec::new();
+    pub fn scan(&mut self) -> Result<Token> {
 
         let mut block_comment = 0;
         let mut line_comment = 0;
 
         let mut keyword_checker = self.keyword_trie.into_checker();
         let mut number_checker = self.number_parser.into_checker();
-
-        let mut chars = ScannerPeekable::new(self.source_code.chars().peekable());
         loop {
-            match chars.next() {
+            match self.chars.next() {
                 Some(c) => {
 
                     if line_comment > 0 {
@@ -122,7 +121,7 @@ impl Scanner {
                         continue;
                     }
                     if block_comment > 0 {
-                        if c == '*' && chars.c_match('/') {
+                        if c == '*' && self.chars.c_match('/') {
                             block_comment -= 1;
                         }
                         continue;
@@ -132,154 +131,152 @@ impl Scanner {
                     } else if c.is_ascii_alphabetic() || c == '_' {
                         // allowed chars [a-zA-Z_]{1}[a-zA-Z_0-9]*
                         keyword_checker.update(c);
-                        while let Some(next_chars) = chars.peek() {
+                        while let Some(next_chars) = self.chars.peek() {
                             if !keyword_checker.can_consume(next_chars) {
                                 break;
                             }
-                            keyword_checker.update(chars.next().unwrap());
+                            keyword_checker.update(self.chars.next().unwrap());
                         }
                         if let Some(keyword) = keyword_checker.check() {
-                            tokens.push(Token::single_token(keyword));
+                            Token::single_token(keyword);
                         } else {
-                            // TODO: identifier tokens
-                            match keyword_checker.get_str() {
-                                Ok(str) => tokens.push(Token::identifier(&str)),
-                                Err(error) => return Err(error),
-                            }
+                            let str = keyword_checker.get_str()?;
+                            return Ok(Token::Identifier(str));
                         }
                     } else if c.is_digit(10) {
                         number_checker.update(c);
                         // allowed chars [0-9]{1}[0-9a-z.]*, delegate to number checker for validation checks
-                        while let Some(next_chars) = chars.peek() {
+                        while let Some(next_chars) = self.chars.peek() {
                             if !number_checker.can_consume(next_chars) {
                                 break;
                             }
-                            number_checker.update(chars.next().unwrap());
+                            number_checker.update(self.chars.next().unwrap());
                         }
                         if let Ok(value) = number_checker.check() {
                             // a valid token
-                            tokens.push(Token::number_token(value));
+                            return Ok(Token::number_token(value));
                         } else {
                             // TODO: raise number parse errors
                         }
                     } else if c == '"' || c == '\'' {
                         // TODO: string constants
-                        match parse_constant_chars(&mut chars, c) {
-                            Ok(str) => {
-                                match c {
-                                    '\'' => tokens.push(Token::text_token(TokenType::Char, &str)),
-                                    '"' => tokens.push(Token::text_token(TokenType::String, &str)),
-                                    _ => {panic!()}
-                                }
-                            }
-                            Err(err) => return Err(err)
+                        let str = parse_constant_chars(&mut self.chars, c)?;
+                        match c {
+                            '\'' => return Ok(Token::text_token(TokenType::Char, &str)),
+                            '"' => return Ok(Token::text_token(TokenType::String, &str)),
+                            _ => {panic!("This branch should not happen!")}
                         }
                     } else {
                         match c {
-                            '(' => tokens.push(Token::single_token(TokenType::LeftParen)),
-                            ')' => tokens.push(Token::single_token(TokenType::RightParen)),
-                            '{' => tokens.push(Token::single_token(TokenType::LeftBrace)),
-                            '}' => tokens.push(Token::single_token(TokenType::RightBrace)),
-                            ',' => tokens.push(Token::single_token(TokenType::Comma)),
-                            ';' => tokens.push(Token::single_token(TokenType::Semicolon)),
+                            '#' => return Ok(Token::single_token(TokenType::Hash)),
+                            '(' => return Ok(Token::single_token(TokenType::LeftParen)),
+                            ')' => return Ok(Token::single_token(TokenType::RightParen)),
+                            '{' => return Ok(Token::single_token(TokenType::LeftBrace)),
+                            '}' => return Ok(Token::single_token(TokenType::RightBrace)),
+                            ',' => return Ok(Token::single_token(TokenType::Comma)),
+                            ';' => return Ok(Token::single_token(TokenType::Semicolon)),
                             '+' => {
-                                if chars.c_match('=') {
-                                    tokens.push(Token::single_token(TokenType::PlusEqual));
+                                return if self.chars.c_match('=') {
+                                    Ok(Token::single_token(TokenType::PlusEqual))
                                 } else {
-                                    tokens.push(Token::single_token(TokenType::Plus));
+                                    Ok(Token::single_token(TokenType::Plus))
                                 }
                             }
                             '-' => {
-                                if chars.c_match('=') {
-                                    tokens.push(Token::single_token(TokenType::MinusEqual));
+                                return if self.chars.c_match('=') {
+                                    Ok(Token::single_token(TokenType::MinusEqual))
                                 } else {
-                                    tokens.push(Token::single_token(TokenType::Minus));
+                                    Ok(Token::single_token(TokenType::Minus))
                                 }
                             }
                             '*' => {
-                                if chars.c_match('/') {
-                                    return Err(CompilerErrorKind::ScannerError(
-                                        chars.line_number,
-                                        chars.col_number,
+                                return if self.chars.c_match('/') {
+                                    Err(CompilerErrorKind::ScannerError(
+                                        self.chars.line_number,
+                                        self.chars.col_number,
                                         String::from("unrecognized end of comment '*/'")
                                     ))
-                                } else if chars.c_match('=') {
-                                    tokens.push(Token::single_token(TokenType::StarEqual));
+                                } else if self.chars.c_match('=') {
+                                    Ok(Token::single_token(TokenType::StarEqual))
                                 } else {
-                                    tokens.push(Token::single_token(TokenType::Star));
+                                    Ok(Token::single_token(TokenType::Star))
                                 }
                             }
                             '/' => {
-                                if chars.c_match('=') {
-                                    tokens.push(Token::single_token(TokenType::SlashEqual));
-                                } else if chars.c_match('/') {
+                                if self.chars.c_match('=') {
+                                    return Ok(Token::single_token(TokenType::SlashEqual));
+                                } else if self.chars.c_match('/') {
                                     line_comment += 1;
-                                } else if chars.c_match('*'){
+                                } else if self.chars.c_match('*'){
                                     block_comment += 1;
                                 } else {
-                                    tokens.push(Token::single_token(TokenType::Slash));
+                                    return Ok(Token::single_token(TokenType::Slash));
                                 }
                             }
                             '&' => {
-                                if chars.c_match('=') {
-                                    tokens.push(Token::single_token(TokenType::AndEqual));
+                                return if self.chars.c_match('=') {
+                                    Ok(Token::single_token(TokenType::AndEqual))
                                 } else {
-                                    tokens.push(Token::single_token(TokenType::And));
+                                    Ok(Token::single_token(TokenType::And))
                                 }
                             }
                             '|' => {
-                                if chars.c_match('=') {
-                                    tokens.push(Token::single_token(TokenType::OrEqual));
+                                return if self.chars.c_match('=') {
+                                    Ok(Token::single_token(TokenType::OrEqual))
                                 } else {
-                                    tokens.push(Token::single_token(TokenType::Or));
+                                    Ok(Token::single_token(TokenType::Or))
                                 }
                             }
                             '^' => {
-                                if chars.c_match('=') {
-                                    tokens.push(Token::single_token(TokenType::CapEqual));
+                                return if self.chars.c_match('=') {
+                                    Ok(Token::single_token(TokenType::CapEqual))
                                 } else {
-                                    tokens.push(Token::single_token(TokenType::Cap));
+                                    Ok(Token::single_token(TokenType::Cap))
                                 }
                             }
                             '~' => {
-                                if chars.c_match('=') {
-                                    tokens.push(Token::single_token(TokenType::WaveEqual));
+                                return if self.chars.c_match('=') {
+                                    Ok(Token::single_token(TokenType::WaveEqual))
                                 } else {
-                                    tokens.push(Token::single_token(TokenType::Wave));
+                                    Ok(Token::single_token(TokenType::Wave))
                                 }
                             }
                             '=' => {
-                                if chars.c_match('=') {
-                                    tokens.push(Token::single_token(TokenType::EqualEqual));
+                                return if self.chars.c_match('=') {
+                                    Ok(Token::single_token(TokenType::EqualEqual))
                                 } else {
-                                    tokens.push(Token::single_token(TokenType::Equal));
+                                    Ok(Token::single_token(TokenType::Equal))
                                 }
                             }
                             '!' => {
-                                if chars.c_match('=') {
-                                    tokens.push(Token::single_token(TokenType::NotEqual));
+                                return if self.chars.c_match('=') {
+                                    Ok(Token::single_token(TokenType::NotEqual))
                                 } else {
-                                    tokens.push(Token::single_token(TokenType::Not));
+                                    Ok(Token::single_token(TokenType::Not))
                                 }
                             }
                             '>' => {
-                                if chars.c_match('=') {
-                                    tokens.push(Token::single_token(TokenType::GreaterEqual));
+                                return if self.chars.c_match('=') {
+                                    Ok(Token::single_token(TokenType::GreaterEqual))
+                                } else if self.chars.c_match('>') {
+                                    Ok(Token::single_token(TokenType::RightArrow))
                                 } else {
-                                    tokens.push(Token::single_token(TokenType::Greater));
+                                    Ok(Token::single_token(TokenType::Greater))
                                 }
                             }
                             '<' => {
-                                if chars.c_match('=') {
-                                    tokens.push(Token::single_token(TokenType::LessEqual));
+                                return if self.chars.c_match('=') {
+                                    Ok(Token::single_token(TokenType::LessEqual))
+                                } else if self.chars.c_match('<') {
+                                    Ok(Token::single_token(TokenType::LeftArrow))
                                 } else {
-                                    tokens.push(Token::single_token(TokenType::Less))
+                                    Ok(Token::single_token(TokenType::Less))
                                 }
                             }
                             _ => {
                                 return Err(CompilerErrorKind::ScannerError(
-                                    chars.line_number,
-                                    chars.col_number,
+                                    self.chars.line_number,
+                                    self.chars.col_number,
                                     String::from(format!("unrecognized character: '{}'", c)),
                                 ))
                             }
@@ -287,16 +284,9 @@ impl Scanner {
                     }
                 }
                 None => {
-                    tokens.push(Token::single_token(TokenType::Eof));
-                    break;
+                    return Ok(Token::single_token(TokenType::Eof));
                 }
             }
         }
-        Ok(tokens)
-    }
-
-    fn peek(&mut self, chars: &Peekable<Chars>, position: usize) -> Option<char> {
-        // chars.peekable().nth(position)
-        None
     }
 }
