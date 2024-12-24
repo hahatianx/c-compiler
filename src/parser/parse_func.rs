@@ -2,7 +2,7 @@ use crate::parser::ast::binary_op_node::BinaryAstNode;
 use crate::parser::ast::core::AstNode;
 use crate::parser::operations::Operations;
 use crate::parser::parser::Parser;
-use crate::scanner::tokens::{Token, TokenType};
+use crate::scanner::tokens::{TokenType};
 use crate::common::Result;
 use crate::parser::ast::value_node::ValueNode;
 use crate::parser::precedence::Precedence;
@@ -29,7 +29,7 @@ pub fn binary<'a>(parser: &'a mut Parser, _can_assign: bool) -> Result<Box<dyn A
         TokenType::Minus => node.set_op(Operations::OpIntMinus),
         TokenType::Star => node.set_op(Operations::OpIntMul),
         TokenType::Slash => node.set_op(Operations::OpIntDiv),
-        Others => unimplemented!("{:?}", Others),
+        others => unimplemented!("{:?}", others),
     }
 
     Ok(Box::new(node))
@@ -41,16 +41,8 @@ pub fn grouping<'a>(parser: &'a mut Parser, _can_assign: bool) -> Result<Box<dyn
     Ok(expression)
 }
 
-
 pub fn int_number<'a>(parser: &'a mut Parser, _can_assign: bool) -> Result<Box<dyn AstNode>> {
     let token = parser.get_previous();
-    Ok(Box::new(ValueNode::new(0)))
-    // match token {
-    //     Token::Number() => {
-    //         unsafe {
-    //         }
-    // },
-    //     _ => unimplemented!()
-    // }
+    Ok(Box::new(ValueNode::new(token.get_value() as i64)))
 }
 

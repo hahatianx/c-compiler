@@ -1,5 +1,4 @@
 use crate::scanner::scanner::Scanner;
-use crate::parser;
 use crate::parser::parser::Parser;
 
 pub struct SourceCode {

@@ -7,8 +7,8 @@ pub struct BinaryAstNode {
 
     core: AstNodeCore,
 
-    left: Box<dyn AstNode>,
-    right: Box<dyn AstNode>,
+    pub left: Box<dyn AstNode>,
+    pub right: Box<dyn AstNode>,
 
 }
 

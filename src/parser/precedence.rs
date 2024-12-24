@@ -74,7 +74,7 @@ impl TokenType {
             TokenType::Integer => PARSE_RULE_INTEGER,
 
             TokenType::Eof => PARSE_RULE_EOF,
-            Others=> unimplemented!("{:?}", Others),
+            others=> unimplemented!("{:?}", others),
         }
     }
 

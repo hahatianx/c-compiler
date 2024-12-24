@@ -1,5 +1,4 @@
 use crate::common::errors::error::CompilerErrorKind;
-use crate::scanner::tokens::{Token};
 
 pub struct NumberParser {}
 

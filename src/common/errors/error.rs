@@ -1,7 +1,9 @@
-use std::fmt::{write, Debug, Display, Formatter};
+use std::fmt::{Debug, Display, Formatter};
 
 pub enum CompilerErrorKind {
     InternalError(String),
+    FileError(String),
+    CodeGeneratorError(String),
     ScannerError(usize, usize, String),
     CompilerError(usize, usize, String),
 }
@@ -13,6 +15,12 @@ fn fmt(error: &CompilerErrorKind, f: &mut Formatter<'_>) -> std::fmt::Result {
         },
         CompilerErrorKind::CompilerError(line, column, message) => {
             write!(f, "Compiler Error: (line: {}, column: {}, message: {})", line, column, message)
+        },
+        CompilerErrorKind::FileError(message) => {
+            write!(f, "File operation Error: {}", message)
+        },
+        CompilerErrorKind::CodeGeneratorError(message) => {
+            write!(f, "Code Generator Error: {}", message)
         },
         CompilerErrorKind::InternalError(message) => {
             write!(f, "Internal Error: {}", message)

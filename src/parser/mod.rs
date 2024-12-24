@@ -1,5 +1,5 @@
 pub mod parser;
-mod ast;
-mod operations;
-mod precedence;
-mod parse_func;
+pub mod ast;
+pub mod operations;
+pub mod precedence;
+pub mod parse_func;

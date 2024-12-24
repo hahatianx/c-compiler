@@ -1,4 +1,5 @@
 use std::fmt::{Debug, Formatter};
+use crate::codegen::core::RegLoadable;
 use crate::parser::ast::core::{AstNode, AstNodeCore};
 use crate::parser::operations::Operations;
 
@@ -16,6 +17,20 @@ impl ValueNode {
             value,
         }
     }
+
+    pub fn get_value(&self) -> i64 {
+        self.value
+    }
+}
+
+impl RegLoadable for i64 {
+    fn to_arm(&self) -> String {
+        todo!()
+    }
+
+    fn to_gnu_x86(&self) -> String {
+        format!("${}", self)
+    }
 }
 
 impl AstNode for ValueNode {
@@ -23,7 +38,7 @@ impl AstNode for ValueNode {
         self.core.op
     }
 
-    fn set_op(&mut self, op: Operations) {
+    fn set_op(&mut self, _op: Operations) {
         todo!()
     }
 }

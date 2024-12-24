@@ -97,7 +97,6 @@ impl<'a> Parser<'a> {
             self.previous = self.current.clone();
             self.current = self.scanner.scan()?;
         }
-        // dbg!(&self.previous, &self.current);
         Ok(())
     }
 

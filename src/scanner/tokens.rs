@@ -67,16 +67,15 @@ pub enum TokenType {
 }
 
 
-#[derive(Clone, Copy)]
+#[derive(Clone, Debug)]
 #[repr(C)]
-union TokenValue {
-    pub float_value: f64,
-    pub int_value: i64,
+pub struct TokenValue {
+    value: Box<u64>,
 }
 
-impl Debug for TokenValue {
-    fn fmt(&self, f: &mut Formatter<'_>) -> std::fmt::Result {
-        write!(f, "{}", unsafe { self.int_value })
+impl TokenValue {
+    pub fn get_value(&self) -> u64 {
+        *self.value
     }
 }
 
@@ -86,7 +85,7 @@ pub enum Token {
     Single(TokenType),
     Identifier(String),
     Number(TokenType, TokenValue),
-    Text(TokenType, String),
+    Text(TokenType, Box<String>),
 }
 
 impl Debug for Token {
@@ -119,12 +118,12 @@ impl<'a> Token {
     }
 
     pub fn number_token(value: i64) -> Self {
-        Self::Number(TokenType::Integer, TokenValue { int_value: value })
+        Self::Number(TokenType::Integer, TokenValue { value: Box::new(value as u64) })
     }
 
     pub fn text_token(token_type: TokenType, value: &'a str) -> Self {
         // token_type must be either String or Char
-        Self::Text(token_type, value.to_string())
+        Self::Text(token_type, Box::new(value.to_string()))
     }
 
     pub fn identifier(text: &'a str) -> Self {
@@ -139,6 +138,15 @@ impl<'a> Token {
             Token::Number(t, _) => *t,
             Token::Text(t, _) => *t,
             Token::None => TokenType::None,
+        }
+    }
+
+    pub fn get_value(&self) -> u64 {
+        match self {
+            Token::Number(_, value) => value.get_value(),
+            other => unimplemented!(
+                "get_value() is not implemented for {:?}",
+                other)
         }
     }
 }
