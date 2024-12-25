@@ -64,6 +64,9 @@ pub enum TokenType {
     Else,
     For,
     While,
+
+    // Test keyword
+    Print,
 }
 
 
@@ -107,7 +110,8 @@ impl Debug for Token {
                     _ => panic!("Should not happen!"),
                 }
             },
-            _ => {write!(f, "")},
+            Token::None => write!(f, "[None]"),
+            other => unimplemented!("{:?}", other),
         }
     }
 }

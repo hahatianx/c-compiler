@@ -1,7 +1,9 @@
 use crate::common::Result;
 use crate::codegen::core::CodeGen;
 use crate::parser::ast::binary_op_node::BinaryAstNode;
+use crate::parser::ast::block_node::BlockNode;
 use crate::parser::ast::core::AstNode;
+use crate::parser::ast::print_node::PrintAstNode;
 use crate::parser::ast::value_node::ValueNode;
 use crate::parser::operations::Operations;
 
@@ -20,8 +22,9 @@ where T: CodeGen
 
     pub fn interpret(&mut self, ast: &dyn AstNode) -> Result<()> {
         self.generator.cg_pre_amble()?;
-        let reg = self.do_interpret(ast)?;
-        self.generator.cg_printreg(reg)?;
+
+        self.do_interpret(ast)?;
+
         self.generator.cg_post_amble()?;
         Ok(())
     }
@@ -51,8 +54,17 @@ where T: CodeGen
             }
 
         } else if let Some(value_node) = ast.downcast_ref::<ValueNode>() {
-
             self.generator.cg_load(value_node.get_value())
+        } else if let Some(block_node) = ast.downcast_ref::<BlockNode>() {
+            for ast in block_node.block.iter() {
+                self.do_interpret(&**ast)?;
+            }
+            Ok(0)
+        } else if let Some(print_node) = ast.downcast_ref::<PrintAstNode>() {
+
+            let reg = self.do_interpret(&*print_node.expr)?;
+            self.generator.cg_printreg(reg)?;
+            Ok(reg)
 
         } else {
             panic!("Unknown node type");

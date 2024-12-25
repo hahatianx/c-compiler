@@ -56,7 +56,7 @@ impl CodeGen for X86Generator<'_> {
         */
         file_writeln!(self, output, writeln,
             "\tmovl\t$0, %eax",
-            "\tpopq\t$rbp",
+            "\tpopq\t%rbp",
             "\tret",
         );
 

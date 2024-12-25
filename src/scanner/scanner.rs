@@ -2,7 +2,7 @@ use crate::common::errors::error::CompilerErrorKind;
 use crate::common::Result;
 use crate::scanner::number_parser::{NumberParser};
 use crate::scanner::tokens::{Token, TokenType};
-use crate::utils::trie::KeywordTrie;
+use crate::scanner::keyword_trie::KeywordTrie;
 use std::iter::Peekable;
 use std::str::Chars;
 use crate::source_code::SourceCode;
@@ -137,11 +137,11 @@ impl<'a> Scanner<'a> {
                             }
                             keyword_checker.update(self.chars.next().unwrap());
                         }
-                        if let Some(keyword) = keyword_checker.check() {
-                            Token::single_token(keyword);
+                        return if let Some(keyword) = keyword_checker.check() {
+                            Ok(Token::single_token(keyword))
                         } else {
                             let str = keyword_checker.get_str()?;
-                            return Ok(Token::Identifier(str));
+                            Ok(Token::Identifier(str))
                         }
                     } else if c.is_digit(10) {
                         number_checker.update(c);

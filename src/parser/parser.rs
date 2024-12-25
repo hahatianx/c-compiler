@@ -2,7 +2,9 @@ use crate::common::errors::error::CompilerErrorKind;
 use crate::common::errors::error::CompilerErrorKind::CompilerError;
 use crate::scanner::tokens::{Token, TokenType};
 use crate::common::Result;
+use crate::parser::ast::block_node::BlockNode;
 use crate::parser::ast::core::AstNode;
+use crate::parser::ast::print_node::PrintAstNode;
 use crate::parser::precedence::Precedence;
 use crate::scanner::scanner::Scanner;
 
@@ -49,7 +51,7 @@ impl<'a> Parser<'a> {
     }
 
     pub fn parse(&mut self) -> Result<Box<dyn AstNode>> {
-        self.expression()
+        self.block()
     }
 
     pub fn get_previous(&self) -> &Token {
@@ -159,5 +161,47 @@ impl<'a> Parser<'a> {
         self.parse_precedence(Precedence::PrecAssignment)
     }
 
+    pub fn statement(&mut self) -> Result<Box<dyn AstNode>> {
+        if self.t_match(TokenType::Print)? {
+            self.print_statement()
+            // TODO: add int declaration
+        // } else if self.t_match(TokenType::KeyInt)? {
+        } else {
+            self.expression_statement()
+        }
+    }
+
+    pub fn block(&mut self) -> Result<Box<dyn AstNode>> {
+
+        // temporary: consume a left brace {
+
+        self.t_match(TokenType::LeftBrace)?;
+
+        let mut asts: Vec<Box<dyn AstNode>> = vec!();
+        while !self.check(TokenType::RightBrace) && !self.t_match(TokenType::Eof)? {
+            asts.push(self.statement()?)
+        }
+        self.consume(TokenType::RightBrace, "Expect '}' after block")?;
+
+        Ok(Box::new(BlockNode::new(asts)))
+    }
+
+    /**********************************************************************************/
+
+    fn print_statement(&mut self) -> Result<Box<dyn AstNode>> {
+        let ast = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expected ';' after expression.")?;
+        Ok(Box::new(PrintAstNode::new(ast)))
+    }
+
+    fn expression_statement(&mut self) -> Result<Box<dyn AstNode>> {
+        let ast = self.expression()?;
+        self.consume(TokenType::Semicolon, "Expected ';' after expression.")?;
+        Ok(ast)
+    }
+
+    // fn variable_declaration(&mut self, token_type: &TokenType) -> Result<Box<dyn AstNode>> {
+    //
+    // }
 
 }

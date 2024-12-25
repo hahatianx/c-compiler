@@ -94,6 +94,8 @@ impl KeywordTrie {
         keyword_trie.insert("double", TokenType::KeyDouble);
         keyword_trie.insert("string", TokenType::KeyString);
 
+        keyword_trie.insert("print", TokenType::Print);
+
         keyword_trie
     }
 

@@ -34,9 +34,8 @@ fn main() {
 
             match parser.parse() {
                 Ok(ast) => {
-                    // println!("{:#?}", ast)
+                    println!("{:#?}", ast);
                     interpreter.interpret(&*ast).expect("Failed to interpret");
-
                 },
                 Err(e) => panic!("{:?}", e),
             }

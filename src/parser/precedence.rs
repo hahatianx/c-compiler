@@ -73,6 +73,10 @@ impl TokenType {
             TokenType::Slash => PARSE_RULE_SLASH,
             TokenType::Integer => PARSE_RULE_INTEGER,
 
+            TokenType::LeftBrace => PARSE_RULE_LEFT_BRACE,
+            TokenType::RightBrace => PARSE_RULE_RIGHT_BRACE,
+
+            TokenType::Semicolon => PARSE_RULE_SEMICOLON,
             TokenType::Eof => PARSE_RULE_EOF,
             others=> unimplemented!("{:?}", others),
         }
